@@ -106,3 +106,58 @@ def newNote(self, forDeck=True):
 
 除了在tests函数中，另外在addcards.py、models.py中调用，两个都在aqt中。2018-11-06 17:08:38
 
+### 3 单步调试GUI启动过程
+
+解压apkg文件后
+
+```bash
+➜  anki tree
+.
+├── jouyou.apkg
+└── jouyou.apkg_FILES
+    ├── 0
+    ├── collection.anki2
+    └── media
+```
+
+导入时，注意到涉及~/.local文件夹。
+
+调试runanki。
+
+在aqt/init中
+
+```
+# profile manager
+    from aqt.profiles import ProfileManager
+    pm = ProfileManager(opts.base)
+```
+
+opts.base默认为空字符。ProfileManager区分不同平台，Linux下为
+
+```
+dataDir = os.environ.get(
+                "XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+```
+
+然后实例化`class AnkiApp(QApplication):`
+
+检查一些设置后，创建aqt/main.py中的主窗口`mw = aqt.main.AnkiQt(app, pm, opts, args)`
+
+执行到`app.exec`启动的窗口的初始界面上，已经含有deck。应该是在上面窗口的创建过程中已经读取了。
+
+init函数中主要执行两个函数
+
+1. setupUI，setupUI中调用各种setup方法。
+2. setupProfile。调用链：loadProfile 》 loadCollection 》_loadCollection
+
+```
+    def _loadCollection(self):
+        cpath = self.pm.collectionPath()
+
+        self.col = Collection(cpath, log=True)
+```
+
+
+
+
+
