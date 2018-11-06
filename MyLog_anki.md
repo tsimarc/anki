@@ -1,4 +1,4 @@
-### 1
+### 1 目录结构 & 测试代码
 
 anki目录下没有gui成分。aqt下含有gui成分。
 
@@ -42,5 +42,67 @@ export PYTHONPATH=`pwd`
 
 `git remote add -h`
 
+### 2 调试，大致了解对象层次
 
+vscode中创建main.py，启动调试。Debug console输出
+
+```
+➜  anki git:(master) ✗ cd /home/qian/project/learn/public/anki ; env "PYTHONIOENCODING=UTF-8" "PYTHONUNBUFFERED=1" python /home/qian/.vscode/extensions/ms-python.python-2018.9.2/pythonFiles/experimental/ptvsd_launcher.py 38212 /home/qian/project/learn/public/anki/tests/main.py
+```
+
+```
+def Collection(path, lock=True, server=False, sync=True, log=False):
+	db = DB(path)   # path是后缀名为anki2的文件路径
+```
+
+storage.py中的Collection函数
+
+1. 连接数据库db
+2. 返回collection.py中的_Collection对象。`col = _Collection(db, server, log)`
+
+_Collection构造函数中
+
+```
+        self.media = MediaManager(self, server)
+        self.models = ModelManager(self)
+        self.decks = DeckManager(self)
+        self.tags = TagManager(self)
+```
+
+其中的XXManager来自xx.py
+
+DB类的_db适配了sqlite3.Connections
+
+deck是_Collection
+
+综上，collection.py的_Collection是入点。
+
+收获：对象的层层管理
+
+### 3 查看note的过程
+
+deck生成note，使用不同flag预览note的不同card。
+
+```
+deck = getEmptyCol()
+f = deck.newNote()
+# all templates
+cards = deck.previewCards(f, 2)
+```
+
+在collection.py的Outline中输入Note查找
+
+collection的addNote、rmNotes实际上是新增、删除跟note相关的card。
+
+```python
+def newNote(self, forDeck=True):
+        "Return a new note with the current model."
+        return anki.notes.Note(self,self.models.current(forDeck))
+```
+
+
+
+全局搜索newNode。
+
+除了在tests函数中，另外在addcards.py、models.py中调用，两个都在aqt中。2018-11-06 17:08:38
 
