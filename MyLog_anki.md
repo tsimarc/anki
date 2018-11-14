@@ -157,7 +157,88 @@ init函数中主要执行两个函数
         self.col = Collection(cpath, log=True)
 ```
 
+### 4
 
+2018-11-07 10:43:58 sqlitebrowser中查看jouyou.anki2。注意到有Paragrma。表、表字段都要schema。
+
+数据集中card、note两个表。note中的csum都是很大的数字。card中的did不知何意，看到的值都一样。
+
+sqlitebrowser用Qt5写成，有表格、图表。2018-11-07 10:50:44
+
+### 5
+
+anki web上点`Basic phone mode`调到`Simple Study Mode`
+
+尝试观察html、网络请求。
+
+web版切换卡片后，右上角的数字可能不会立即更新。对数字颜色、含义不解。
+
+"Show Answer" > reiviewer.py > 
+
+嵌入了html和事件调用，追溯到web里的reviewer.js里的pycmd('ans')
+
+webviwe.py中`AnkiWebPage(QWebEnginePage):`中
+
+```python
+script = QWebEngineScript()
+        script.setSourceCode(js + '''
+            var pycmd;
+```
+
+调试，窗口没出现前，setupUI》setupMainWindow，完成了绑定
+
+窗口出现口，sync进度条跳过后，出现主窗口，空白。
+
+此时cmd是domDone
+
+```
+_onBridgeCmd (/home/qian/project/learn/public/anki/aqt/webview.py:334)
+_onCmd (/home/qian/project/learn/public/anki/aqt/webview.py:85)
+cmd (/home/qian/project/learn/public/anki/aqt/webview.py:27)
+_run (/home/qian/project/learn/public/anki/aqt/__init__.py:347)
+run (/home/qian/project/learn/public/anki/aqt/__init__.py:262)
+<module> (/home/qian/project/learn/public/anki/runanki:4)
+```
+
+看见首页前，出现了好像4词domDone
+
+点deck名，cmd是'open:1541609815897'，接着又出现domDone
+
+进入deck页。点”Study Now"，cmd是study
+
+两次domDone后，显示卡片首页。（期间窗口空白）
+
+“Show Answer”，cmd是“ans”，按钮点击状态下阻塞
+
+看不出来怎么跳过去的
+
+```
+_linkHandler (/home/qian/project/learn/public/anki/aqt/reviewer.py:286)
+_onBridgeCmd (/home/qian/project/learn/public/anki/aqt/webview.py:346)
+_onCmd (/home/qian/project/learn/public/anki/aqt/webview.py:85)
+cmd (/home/qian/project/learn/public/anki/aqt/webview.py:27)
+_run (/home/qian/project/learn/public/anki/aqt/__init__.py:347)
+run (/home/qian/project/learn/public/anki/aqt/__init__.py:262)
+<module> (/home/qian/project/learn/public/anki/runanki:4)
+```
+
+继续进入，生成js，最终在webviews中eval生成的js更新页面。
+
+点了‘Again'按钮，ease1
+
+```
+def _linkHandler(self, url):
+        if url == "ans":
+            self._getTypedAnswer()
+        elif url.startswith("ease"):
+            self._answerCard(int(url[4:]))
+        elif url == "edit":
+            self.mw.onEditCurrent()
+        elif url == "more":
+            self.showContextMenu()
+        else:
+            print("unrecognized anki link:", url)
+```
 
 
 
