@@ -62,7 +62,7 @@ storage.py中的Collection函数
 
 _Collection构造函数中
 
-```
+```python
         self.media = MediaManager(self, server)
         self.models = ModelManager(self)
         self.decks = DeckManager(self)
@@ -126,7 +126,7 @@ def newNote(self, forDeck=True):
 
 在aqt/init中
 
-```
+```python
 # profile manager
     from aqt.profiles import ProfileManager
     pm = ProfileManager(opts.base)
@@ -134,7 +134,7 @@ def newNote(self, forDeck=True):
 
 opts.base默认为空字符。ProfileManager区分不同平台，Linux下为
 
-```
+```python
 dataDir = os.environ.get(
                 "XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
 ```
@@ -150,17 +150,99 @@ init函数中主要执行两个函数
 1. setupUI，setupUI中调用各种setup方法。
 2. setupProfile。调用链：loadProfile 》 loadCollection 》_loadCollection
 
-```
+```python
     def _loadCollection(self):
         cpath = self.pm.collectionPath()
 
         self.col = Collection(cpath, log=True)
 ```
 
-### 5 探索card类型
+### 4 查看anki2文件
+
+2018-11-07 10:43:58 sqlitebrowser中查看jouyou.anki2。注意到有Paragrma。表、表字段都要schema。
+
+数据集中card、note两个表。note中的csum都是很大的数字。card中的did不知何意，看到的值都一样。
+
+sqlitebrowser用Qt5写成，有表格、图表。2018-11-07 10:50:44
+
+### 5 探索web与PyQt的交互
+
+anki web上点`Basic phone mode`调到`Simple Study Mode`
+
+尝试观察html、网络请求。
+
+web版切换卡片后，右上角的数字可能不会立即更新。对数字颜色、含义不解。
+
+"Show Answer" > reiviewer.py > 
+
+嵌入了html和事件调用，追溯到web里的reviewer.js里的pycmd('ans')
+
+webviwe.py中`AnkiWebPage(QWebEnginePage):`中
+
+```python
+script = QWebEngineScript()
+        script.setSourceCode(js + '''
+            var pycmd;
+```
+
+调试，窗口没出现前，setupUI》setupMainWindow，完成了绑定
+
+窗口出现口，sync进度条跳过后，出现主窗口，空白。
+
+此时cmd是domDone
+
+```
+_onBridgeCmd (/home/qian/project/learn/public/anki/aqt/webview.py:334)
+_onCmd (/home/qian/project/learn/public/anki/aqt/webview.py:85)
+cmd (/home/qian/project/learn/public/anki/aqt/webview.py:27)
+_run (/home/qian/project/learn/public/anki/aqt/__init__.py:347)
+run (/home/qian/project/learn/public/anki/aqt/__init__.py:262)
+<module> (/home/qian/project/learn/public/anki/runanki:4)
+```
+
+看见首页前，出现了好像4词domDone
+
+点deck名，cmd是'open:1541609815897'，接着又出现domDone
+
+进入deck页。点”Study Now"，cmd是study
+
+两次domDone后，显示卡片首页。（期间窗口空白）
+
+“Show Answer”，cmd是“ans”，按钮点击状态下阻塞
+
+看不出来怎么跳过去的
+
+```
+_linkHandler (/home/qian/project/learn/public/anki/aqt/reviewer.py:286)
+_onBridgeCmd (/home/qian/project/learn/public/anki/aqt/webview.py:346)
+_onCmd (/home/qian/project/learn/public/anki/aqt/webview.py:85)
+cmd (/home/qian/project/learn/public/anki/aqt/webview.py:27)
+_run (/home/qian/project/learn/public/anki/aqt/__init__.py:347)
+run (/home/qian/project/learn/public/anki/aqt/__init__.py:262)
+<module> (/home/qian/project/learn/public/anki/runanki:4)
+```
+
+继续进入，生成js，最终在webviews中eval生成的js更新页面。
+
+点了‘Again'按钮，ease1
+
+```python
+def _linkHandler(self, url):
+        if url == "ans":
+            self._getTypedAnswer()
+        elif url.startswith("ease"):
+            self._answerCard(int(url[4:]))
+        elif url == "edit":
+            self.mw.onEditCurrent()
+        elif url == "more":
+            self.showContextMenu()
+        else:
+            print("unrecognized anki link:", url)
+```
+
+### 6 探索card类型
 
 2018-11-10 11:11:24
-
 结论：
 
 * card处于3种类型：new learning review，对应GUI上并排的蓝、红、绿三个数字。当前类型通过对应数字下方的下划线指示。
@@ -185,7 +267,7 @@ init函数中主要执行两个函数
 
 解决思路：看实现前自己尝试手写减少焦虑
 
-### 6 windows上环境配置
+### 7 windows上环境配置
 
 结论：使用anaconda、python3.6、pyqt5.9、PyQt5-tools，在mysys2用修改过的sh脚本生成ui。
 
@@ -306,7 +388,7 @@ pycharm中能正常启动，之前问题大概是没注意切换从venv切换到
 
 参照[PyQt5+Qt Designer - Hubz131的博客 - CSDN博客](https://blog.csdn.net/hubz131/article/details/79352443)，需要安装PyQt5-tools，安装后文件位于Lib\site-packages\pyqt5_tools
 
-### 7
+### 8 study过程按钮变化
 
 relearn
 
@@ -317,6 +399,8 @@ new
 ![1541844943038](MyLog_anki.assets/1541844943038.png)
 
 默认都是good，按空格就行。new按again会很快再出现一次，可以用于确认觉得短期记忆，一共会出现3次，第一次看到、1m之内、10分钟。如果按good，10分钟内再出现一次。
+
+### 9 note type
 
 tools 》 manage note types
 
@@ -345,13 +429,92 @@ self.setupReviewer()
 
 ![1541848697309](MyLog_anki.assets/1541848697309.png)
 
-### 8
+### 10 PyQt资料
 
-[PyQt4 Reference Guide — PyQt 4.12.3 Reference Guide](http://pyqt.sourceforge.net/Docs/PyQt4/index.html)
+[PyQt5 Reference Guide — PyQt 5.11.1 Reference Guide](http://pyqt.sourceforge.net/Docs/PyQt5/)
 
 下载源码，[Riverbank | Software | PyQt | PyQt5 Download](https://www.riverbankcomputing.com/software/pyqt/download5/)，`"PyQt5_gpl-5.11.3\examples\qtdemo\qtdemo.py"`可以访问所有demo。
 
 [PyQt5教程——介绍（1） - Archi - 博客园](https://www.cnblogs.com/archisama/p/5442071.html)
 
 [Introduction · PyQt5 中文教程](https://maicss.gitbooks.io/pyqt5/content/)
+
+### 11 ModelManager和stdmodels
+
+打开anki。2018-11-13 16:17
+
+> Your *collection* is all the material stored in Anki – your cards, notes, decks, note types, deck options, and so on.
+
+`collection.py`中`_Collection`的`__init__`里`self.models = ModelManager(self)`，并列的还有`self.decks = DeckManager(self)`
+
+`stdmodels.py`中可参考
+
+```python
+def addBasicModel(col):
+    mm = col.models
+    m = mm.new(_("Basic"))
+    fm = mm.newField(_("Front"))
+    mm.addField(m, fm)
+    fm = mm.newField(_("Back"))
+    mm.addField(m, fm)
+    t = mm.newTemplate(_("Card 1"))
+    t['qfmt'] = "{{"+_("Front")+"}}"
+    t['afmt'] = "{{FrontSide}}\n\n<hr id=answer>\n\n"+"{{"+_("Back")+"}}"
+    mm.addTemplate(m, t)
+    mm.add(m)
+    return m
+```
+
+几个函数在`storage.py`中的`Collection`的`__init__`里创建了`_Collection`的实例`col`后调用。创建实例`col`之前根据传入的参数path连接数据库db，作为参数传入`col`。2018-11-13 16:57:50
+
+### 12 调试test_cards.py
+
+启动code前，在终端中应该就先把当前目录放到PYTHONPATH中。2018-11-13 17:10:19
+
+getEmptyCol在tmp目录下创建空文件，只要文件名，删了空文件，新建同名数据库，作为母本。每次拿的都是拷贝的副本。
+
+```python
+def newNote(self, forDeck=True):
+        "Return a new note with the current model."
+        return anki.notes.Note(self, self.models.current(forDeck))
+```
+
+```python
+    def selected(self):
+        "The currently selected did."
+        return self.col.conf['curDeck']
+```
+
+```
+selected (/home/qian/project/learn/public/anki/anki/decks.py:451)
+current (/home/qian/project/learn/public/anki/anki/decks.py:454)
+current (/home/qian/project/learn/public/anki/anki/models.py:108)
+newNote (/home/qian/project/learn/public/anki/anki/collection.py:292)
+test_previewCards (/home/qian/project/learn/public/anki/tests/test_cards.py:7)
+card (/home/qian/project/learn/public/anki/tests/main.py:4)
+<module> (/home/qian/project/learn/public/anki/tests/main.py:7)
+```
+
+调用栈返回到newNote中进入Node的`__init__`
+
+Note类重写了
+
+```python
+    def __setitem__(self, key, value):
+        self.fields[self._fieldOrd(key)] = value
+```
+
+```python
+def test_previewCards():
+    deck = getEmptyCol()
+    f = deck.newNote()
+    f['Front'] = '1'
+    f['Back'] = '2'
+    # non-empty and active
+    cards = deck.previewCards(f, 0)
+```
+
+在数据库中的col中看到dconf保存的json数据。2018-11-13 17:51:17
+
+[DB Browser for SQLite](http://sqlitebrowser.org/)
 
