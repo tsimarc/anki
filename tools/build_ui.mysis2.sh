@@ -27,7 +27,7 @@ do
     echo "from . import $base" >> $temp
     if [ $i -nt $py ]; then
         echo " * "$py
-        pyuic5 --from-imports $i -o $py
+        /e/project/Anaconda3/Library/bin/pyuic5.bat --from-imports $i -o $py
         # munge the output to use gettext
         perl -pi.bak -e 's/(QtGui\.QApplication\.)?_?translate\(".*?", /_(/; s/, None.*/))/' $py
         rm $py.bak
@@ -38,4 +38,4 @@ cat $temp >> $init
 rm $temp
 
 echo "Building resources.."
-pyrcc5 designer/icons.qrc -o aqt/forms/icons_rc.py
+/e/project/Anaconda3/Library/bin/pyrcc5.exe designer/icons.qrc -o aqt/forms/icons_rc.py

@@ -157,7 +157,201 @@ init函数中主要执行两个函数
         self.col = Collection(cpath, log=True)
 ```
 
+### 5 探索card类型
 
+2018-11-10 11:11:24
 
+结论：
 
+* card处于3种类型：new learning review，对应GUI上并排的蓝、红、绿三个数字。当前类型通过对应数字下方的下划线指示。
+* 两边的数字（new和review类型）不断减小，中间的数字不断增大
+  * study过程中看卡片不会修改卡片的信息，就像在其他地方preview卡片一样
+  * new卡片处于第一step。不管按什么按钮new数量都会减1。
+    * 按again文档上说是move back to the first step，中间数字加2
+    * 按good后，卡片到step2，中间数字加1
+    * 按easy后，中间数字不变，安排到以后的review。
+  * review是学习过、今天到期的card。
+    * 按again后变成relearn。中间的数字会加1
+    * learning状态不管按什么按钮，不会导致review数量改变
+
+2018-11-10 11:28:12
+
+过程回忆：在AnkiDroid上学习卡片，观察数字变化，没完全摸透，想起以前隔了很长时间再用也搞不清，用久了熟悉了又没总结，现在又忘了。观察ankidroid的统计，注意到learn、relearn的区别，看ankidroid的文档，后来又看anki的文档。
+
+问题之处：
+
+* 看到卡片、卡片状态、状态变换。后来意识到只看不会改变卡片，新卡片也有状态。
+* 怎么保存状态，数据库记了哪些。现在还不清楚。联想：调度、运行时计算、事先已经算好。
+
+解决思路：看实现前自己尝试手写减少焦虑
+
+### 6 windows上环境配置
+
+结论：使用anaconda、python3.6、pyqt5.9、PyQt5-tools，在mysys2用修改过的sh脚本生成ui。
+
+2018-11-10 11:45:04
+
+`tools/build_ui.sh`需要Linux环境执行。README.development中提到windows下用git的bash。
+
+想在git bash上启用anaconda的环境。
+
+windows上anaconda快捷方式的目标`%windir%\System32\cmd.exe "/K" E:\project\Anaconda3\Scripts\activate.bat E:\project\Anaconda3`
+
+调用了另一个bat脚本，看内容较复杂，放弃。
+
+想把build_ui.sh转换成py脚本，没看懂
+
+新建`tools/build_ui.mysis2.sh`，在MSYS2 MINGW 64-bit中`pacman -S perl`后可以执行脚本，生成ui成功。
+
+脚本改动之处，可见在sh脚本中可以运行bat和exe
+
+```bash
+/e/project/Anaconda3/Library/bin/pyuic5.bat --from-imports $i -o $py
+/e/project/Anaconda3/Library/bin/pyrcc5.exe designer/icons.qrc -o aqt/forms/icons_rc.p
+```
+
+在pycharm中打开，没建虚拟环境，选择anaconda的默认解释器，requirements里只需要额外安装pyaudio。
+
+执行runanki时报错
+
+```
+ModuleNotFoundError: No module named 'PyQt5.QtWebEngineWidgets'
+```
+
+自带的pyqt v5.6，查到说要更新的版本才有这个模块。
+
+anaconda navigator看到pyqt可以升级，但是还是v5.6，点升级也没响应。另外网上，看到v5.6已经有了QtWebEngineWidgets模块。
+
+改用虚拟环境。发现文档中提到pyqt版本5.9
+
+```bash
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
+pip install pyqt5==5.9 -i https://pypi.tuna.tsinghua.edu.cn/simple/
+```
+
+pyaudio安装时报错
+
+```
+Exception:
+Traceback (most recent call last):
+  File "E:\project\projects\learn\public\anki\venv\lib\site-packages\pip-9.0.1-py3.7.egg\pip\compat\__init__.py", line 73, in console_to_str
+    return s.decode(sys.__stdout__.encoding)
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc1 in position 211: invalid start byte
+```
+
+搜到的原因说windows控制台编码造成的。
+
+在mysys中venv/Scripts/activate.bat无效，可以source venv/Scripts/activate，出现(venv)，但是进入python没有响应。
+
+mysys2中pip install pyaudio，调用了vc编辑器，缺头文件
+
+```
+    src/_portaudiomodule.c(29): fatal error C1083: ▒޷▒▒򿪰▒▒▒▒ļ▒: ▒▒portaudio.h▒▒: No such file or directory
+```
+
+官网上提供的wheel缺少python3.7的
+
+> - pip will fetch and install PyAudio wheels (prepackaged binaries). Currently, there are wheels compatible with the[official distributions](http://www.python.org/) of Python 2.7, 3.4, 3.5, and 3.6. For those versions, both 32-bit and 64-bit wheels are available.
+
+[PyAudio: PortAudio v19 Python Bindings](http://people.csail.mit.edu/hubert/pyaudio/)
+
+决定还是切回到3.6。中止。
+
+发现[python升级到3.7版本安装pyaudio - zhl555666的博客 - CSDN博客](https://blog.csdn.net/zhl555666/article/details/82947654)
+
+release中有whl文件
+
+pip install whl文件，报错`PyAudio-0.2.11-cp37-cp37m-win_amd64.whl is not a supported wheel on this platform.`
+
+参照[Python——pip安装报错：is not a supported wheel on this platform - 周小董 - CSDN博客](https://blog.csdn.net/xc_zhou/article/details/80851677)改名，装上
+
+报错，少包
+
+```python
+from anki.utils import isWin
+if isWin:
+    import win32file, win32pipe, pywintypes, winerror
+```
+
+安装`pip install pywin32`
+
+pyaudio中又报错
+
+```
+  File "E:\project\projects\learn\public\anki\venv\lib\site-packages\pyaudio.py", line 116, in <module>
+    import _portaudio as pa
+ModuleNotFoundError: No module named '_portaudio'
+```
+
+尝试用vs从源码编译
+
+cmd、powershell中均报错
+
+```
+LINK : warning LNK4001: 未指定对象文件；已使用库
+LINK : warning LNK4068: 未指定 /MACHINE；默认设置为 X86
+LINK : fatal error LNK1159: 没有指定输出文件
+error: command 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.15.26726\\bin\\HostX86\\x86\\link.exe' failed with exit status 1159
+```
+
+放弃。准备改用anaconda，为了使用python3.6.
+
+都用pip装上。~~pycharm中interpreter中看到了装好的包。但编辑器中依然显示缺pyaudio，启动时也是提示少pyaudio。~~
+
+在命令行中能正常启动anki。~~在pycharm中还是提示少pyaudio，也启动不了。~~
+
+pycharm中能正常启动，之前问题大概是没注意切换从venv切换到conda的env。
+
+发现问题，首页显示比ubuntu上慢得多。
+
+参照[PyQt5+Qt Designer - Hubz131的博客 - CSDN博客](https://blog.csdn.net/hubz131/article/details/79352443)，需要安装PyQt5-tools，安装后文件位于Lib\site-packages\pyqt5_tools
+
+### 7
+
+relearn
+
+![1541844821425](MyLog_anki.assets/1541844821425.png)
+
+new
+
+![1541844943038](MyLog_anki.assets/1541844943038.png)
+
+默认都是good，按空格就行。new按again会很快再出现一次，可以用于确认觉得短期记忆，一共会出现3次，第一次看到、1m之内、10分钟。如果按good，10分钟内再出现一次。
+
+tools 》 manage note types
+
+![1541845912548](MyLog_anki.assets/1541845912548.png)
+
+Deck中的jouyou可以拥有不同类型的note，不要与作为note type的jouyou混淆。
+
+note type相当于vue中的组件、fields是数据，不同的是可以有多套template+style，称为不同的card type。如Basic(and reversed card) note type的cards...
+
+![1541846277760](MyLog_anki.assets/1541846277760.png)
+
+`AnkiQt(QMainWindow).setupUI()`中`self.setupMainWindow`中`self.web = aqt.webview.AnkiWebView()`
+
+`setupUI`方法最后
+
+```python
+# screens
+self.setupDeckBrowser()  # 内部self._renderPage()在AnkiQt的web上渲染页面，在deckbrowser中有硬编码的html
+self.setupOverview()
+self.setupReviewer()
+```
+
+搜索stats页面上的文字定位到代码，ctrl+鼠标左键能显示用法，对流程有了模糊了解。
+
+`aqt.dialogs`是aqt/init.py中的`dialogs = DialogManager()`
+
+![1541848697309](MyLog_anki.assets/1541848697309.png)
+
+### 8
+
+[PyQt4 Reference Guide — PyQt 4.12.3 Reference Guide](http://pyqt.sourceforge.net/Docs/PyQt4/index.html)
+
+下载源码，[Riverbank | Software | PyQt | PyQt5 Download](https://www.riverbankcomputing.com/software/pyqt/download5/)，`"PyQt5_gpl-5.11.3\examples\qtdemo\qtdemo.py"`可以访问所有demo。
+
+[PyQt5教程——介绍（1） - Archi - 博客园](https://www.cnblogs.com/archisama/p/5442071.html)
+
+[Introduction · PyQt5 中文教程](https://maicss.gitbooks.io/pyqt5/content/)
 
